@@ -4,6 +4,7 @@ import { useCatalog, useEventMutation } from "@/infra/hooks/queries";
 import { eventsService } from "@/infra/services/events.service";
 import type { EventPanel } from "@/types/domain";
 import { EventForm } from "./EventForm";
+import { eventFlow } from "./eventFlow";
 import { measure } from "@/utils/format";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -53,7 +54,11 @@ export function OverviewTab({ event: e }: { event: EventPanel }) {
 /** RF-26: categories by modality, weight, belt, age, sex and level. */
 function Divisions({ event: e }: { event: EventPanel }) {
   const { data: catalog } = useCatalog();
-  const [modalityId, setModalityId] = useState(e.modalityIds[0] ?? "");
+  const flow = eventFlow(e, catalog);
+  // Categories follow the event format: bracket sports in brackets, card sports (optional) for card events.
+  const allowed = [...flow.bracketModalities, ...flow.cardModalities.filter((m) => !m.usesBrackets)];
+  const [picked, setModalityId] = useState("");
+  const modalityId = allowed.some((m) => m.id === picked) ? picked : (allowed[0]?.id ?? e.modalityIds[0] ?? "");
   const add = useEventMutation((body: Record<string, unknown>) => eventsService.addDivision(e.id, body));
   const remove = useEventMutation((id: string) => eventsService.removeDivision(e.id, id));
   const modality = catalog?.modalities.find((m) => m.id === modalityId);
@@ -76,7 +81,14 @@ function Divisions({ event: e }: { event: EventPanel }) {
           </Button>
         </div>
       ))}
-      {!e.divisions.length && <Notice tone="muted">Cadastre as categorias para receber inscrições.</Notice>}
+      {!flow.hasBrackets ? (
+        <Notice tone="muted">
+          Em eventos de card as categorias são opcionais: servem para receber inscrições de lutadores interessados. As
+          lutas são montadas na aba Card.
+        </Notice>
+      ) : (
+        !e.divisions.length && <Notice tone="muted">Cadastre as categorias para receber inscrições.</Notice>
+      )}
       <form
         className="grid gap-3 sm:grid-cols-3"
         onSubmit={(ev) => {
@@ -108,13 +120,11 @@ function Divisions({ event: e }: { event: EventPanel }) {
       >
         <Field label="Modalidade">
           <Select value={modalityId} onChange={(ev) => setModalityId(ev.target.value)}>
-            {catalog?.modalities
-              .filter((m) => e.modalityIds.includes(m.id))
-              .map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
+            {allowed.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
           </Select>
         </Field>
         <Field label="Sexo">

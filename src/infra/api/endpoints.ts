@@ -2,6 +2,8 @@
 export const endpoints = {
   catalog: "/catalog",
   plans: "/plans",
+  modules: "/modules",
+  moduleInterest: (code: string) => `/modules/${code}/interest`,
   me: "/me",
   meConsents: "/me/consents",
   mePrivacy: "/me/privacy",

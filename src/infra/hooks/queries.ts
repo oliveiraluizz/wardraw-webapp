@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import type { ProfileType } from "@/types/domain";
+import type { ModuleCode, ProfileType } from "@/types/domain";
 import { adminService } from "../services/admin.service";
 import { catalogService } from "../services/catalog.service";
 import { eventsService } from "../services/events.service";
@@ -11,6 +11,7 @@ import { searchService, type SparringQuery } from "../services/search.service";
 export const keys = {
   catalog: ["catalog"] as const,
   plans: (type?: ProfileType) => ["plans", type ?? "all"] as const,
+  modules: (userId?: string) => ["modules", userId ?? "visitor"] as const,
   me: ["me"] as const,
   profile: (id: string) => ["profile", id] as const,
   sparring: (q: SparringQuery) => ["sparring", q] as const,
@@ -41,6 +42,47 @@ export const keys = {
 const HOUR = 60 * 60 * 1000;
 
 export const useCatalog = () => useQuery({ queryKey: keys.catalog, queryFn: catalogService.catalog, staleTime: HOUR });
+/** Product modules for the current viewer; refreshed often so a module opened in the admin shows up quickly. */
+export const useModules = () => {
+  const { session } = useAuth();
+  return useQuery({
+    queryKey: keys.modules(session?.user.id),
+    queryFn: catalogService.modules,
+    staleTime: 60_000,
+  });
+};
+
+/** `available` while loading avoids flashing the lock for areas that are open. */
+export const useModule = (code: ModuleCode) => {
+  const query = useModules();
+  const module = query.data?.find((m) => m.code === code);
+  return {
+    module,
+    isLoading: query.isLoading,
+    available: query.isLoading || !module || module.available,
+    hidden: !!module && !module.available && module.status === "hidden",
+  };
+};
+
+/** Profile types belong to modules (organizer → event_management, ...): locked types show "coming soon". */
+export const useProfileTypeModules = () => {
+  const { data: catalog } = useCatalog();
+  const { data: modules } = useModules();
+  const moduleOf = (type: ProfileType) => catalog?.profileTypes.find((t) => t.code === type)?.moduleCode ?? null;
+  const isLocked = (type: ProfileType) => {
+    const module = modules?.find((m) => m.code === moduleOf(type));
+    return !!module && !module.available;
+  };
+  return { moduleOf, isLocked };
+};
+
+/** `profiles.type_combinations`: how many profile types one account may hold (public setting). */
+export const useMaxProfileTypes = () => {
+  const { data: catalog } = useCatalog();
+  const policy = catalog?.settings["profiles.type_combinations"] as { maxTypesPerAccount?: number } | undefined;
+  return policy?.maxTypesPerAccount ?? 1;
+};
+
 export const usePlans = (type?: ProfileType) =>
   useQuery({ queryKey: keys.plans(type), queryFn: () => catalogService.plans(type), staleTime: 10 * 60_000 });
 
@@ -72,11 +114,12 @@ export const useProviderSearch = (q: Record<string, unknown>) =>
     placeholderData: keepPreviousData,
   });
 
-export const useAgenda = (q: Record<string, unknown>) =>
+export const useAgenda = (q: Record<string, unknown>, enabled = true) =>
   useQuery({
     queryKey: keys.events.agenda(q),
     queryFn: () => eventsService.agenda(q),
     placeholderData: keepPreviousData,
+    enabled,
   });
 export const useEventPage = (id?: string) =>
   useQuery({ queryKey: keys.events.page(id ?? ""), queryFn: () => eventsService.page(id!), enabled: !!id });
@@ -104,6 +147,7 @@ export function useAdminMutation<TArgs, TResult>(fn: (args: TArgs) => Promise<TR
       void qc.invalidateQueries({ queryKey: keys.admin.all });
       void qc.invalidateQueries({ queryKey: keys.catalog });
       void qc.invalidateQueries({ queryKey: ["plans"] });
+      void qc.invalidateQueries({ queryKey: ["modules"] });
     },
   });
 }

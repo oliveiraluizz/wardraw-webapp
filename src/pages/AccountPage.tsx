@@ -18,7 +18,7 @@ import {
   Select,
 } from "@/components/shared/ui";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCatalog, useMe, useMeMutation } from "@/infra/hooks/queries";
+import { useCatalog, useMaxProfileTypes, useMe, useMeMutation, useProfileTypeModules } from "@/infra/hooks/queries";
 import { billingService, meService, profilesService } from "@/infra/services/me.service";
 import type { ProfileType } from "@/types/domain";
 import { ago, SUBSCRIPTION_STATUS_LABEL } from "@/utils/format";
@@ -240,6 +240,16 @@ function NewProfile() {
     profilesService.create({ type: type!, displayName: name, cityId: cityId || undefined }),
   );
   const existing = new Set(me?.profiles.map((p) => p.type));
+  const { isLocked } = useProfileTypeModules();
+  const maxTypes = useMaxProfileTypes();
+  const creatable = new Set(me?.creatableProfileTypes ?? []);
+  /** Why a type cannot be picked: already active, module still locked or the account's type limit. */
+  const blockedReason = (code: ProfileType): string | null => {
+    if (existing.has(code)) return "Já ativo";
+    if (isLocked(code)) return "Em breve";
+    if (me && !creatable.has(code)) return "Indisponível para esta conta";
+    return null;
+  };
   const featured = catalog?.serviceFamilies.flatMap((f) => f.categories.filter((c) => c.featuredInOnboarding)) ?? [];
 
   return (
@@ -248,7 +258,9 @@ function NewProfile() {
         <Eyebrow>Criar conta</Eyebrow>
         <Display className="text-4xl">Como você vai usar o Wardraw?</Display>
         <p className="mt-2 text-ink-soft">
-          Escolha um perfil para começar. Depois dá para ativar outros na mesma conta.
+          {maxTypes > 1
+            ? "Escolha um perfil para começar. Depois dá para ativar outros na mesma conta."
+            : "Escolha o tipo de perfil da sua conta."}
         </p>
       </div>
       <div className="flex flex-col gap-3">
@@ -256,14 +268,14 @@ function NewProfile() {
           <button
             key={t.code}
             type="button"
-            disabled={existing.has(t.code)}
+            disabled={!!blockedReason(t.code)}
             onClick={() => setType(t.code)}
             className={`flex flex-col gap-2 rounded-card border p-4 text-left disabled:opacity-50 ${type === t.code ? "border-brand-hot bg-brand-deep" : "border-line bg-surface hover:bg-surface-2"}`}
           >
             <span className="flex items-center gap-2 font-display text-2xl uppercase">
               {t.name}
-              {t.code === "organizer" && <Chip tone="gold">Gestão completa de eventos</Chip>}
-              {existing.has(t.code) && <Chip>Já ativo</Chip>}
+              {t.code === "organizer" && !isLocked(t.code) && <Chip tone="gold">Gestão completa de eventos</Chip>}
+              {blockedReason(t.code) && <Chip tone={isLocked(t.code) ? "gold" : "muted"}>{blockedReason(t.code)}</Chip>}
             </span>
             <span className="text-sm text-ink-soft">{t.description}</span>
             {t.code === "provider" && (

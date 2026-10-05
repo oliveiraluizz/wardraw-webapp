@@ -1,16 +1,27 @@
-import { CalendarCheck, Dumbbell, Users } from "lucide-react";
+import { CalendarCheck, Dumbbell, LockKeyhole, Users } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Container } from "@/components/layout/SiteLayout";
 import { EventRowCard } from "@/components/flows/cards";
+import { LockedModule } from "@/components/flows/LockedModule";
 import { OpponentForm, opponentToSearch } from "@/components/flows/OpponentForm";
-import { ButtonLink, Card, Display, Eyebrow, Spinner } from "@/components/shared/ui";
-import { useAgenda, useCatalog } from "@/infra/hooks/queries";
+import { ButtonLink, Card, Chip, Display, Eyebrow, Spinner } from "@/components/shared/ui";
+import { useAgenda, useCatalog, useModules } from "@/infra/hooks/queries";
+
+const SoonChip = () => (
+  <Chip tone="gold" className="w-fit">
+    <LockKeyhole className="mr-1 h-3.5 w-3.5" aria-hidden />
+    Em breve
+  </Chip>
+);
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { data: catalog } = useCatalog();
   const rio = catalog?.cities.find((c) => c.slug === "rio-de-janeiro-rj");
-  const { data: agenda, isLoading } = useAgenda({ cityId: rio?.id });
+  const { data: modules } = useModules();
+  const isOpen = (code: string) => modules?.find((m) => m.code === code)?.available ?? false;
+  const eventsOpen = isOpen("events");
+  const { data: agenda, isLoading } = useAgenda({ cityId: rio?.id }, eventsOpen);
   const categories = catalog?.serviceFamilies.flatMap((f) => f.categories) ?? [];
 
   const pillars = [
@@ -20,6 +31,7 @@ export default function HomePage() {
       text: "Filtre atletas por altura, envergadura, peso, guarda e base. Resultados ordenados por semelhança com o seu adversário.",
       cta: "Buscar sparring",
       to: "/sparring",
+      module: "sparring",
     },
     {
       icon: Users,
@@ -27,6 +39,7 @@ export default function HomePage() {
       text: "Aparador de manopla, fisioterapeuta, psicólogo, nutricionista, fotógrafo. Encontre por cidade e modalidade.",
       cta: "Ver serviços",
       to: "/servicos",
+      module: "services",
     },
     {
       icon: CalendarCheck,
@@ -34,6 +47,7 @@ export default function HomePage() {
       text: "Crie o evento, receba inscrições, monte chaves ou card, faça a pesagem e publique os resultados, que atualizam o cartel dos atletas.",
       cta: "Ver painel do organizador",
       to: "/organizador",
+      module: "event_management",
     },
   ];
 
@@ -62,9 +76,15 @@ export default function HomePage() {
               <ButtonLink to="/entrar?criar=1" size="lg">
                 Criar meu perfil
               </ButtonLink>
-              <ButtonLink to="/entrar?criar=1&tipo=organizer" variant="secondary" size="lg">
-                Sou organizador
-              </ButtonLink>
+              {isOpen("event_management") ? (
+                <ButtonLink to="/entrar?criar=1&tipo=organizer" variant="secondary" size="lg">
+                  Sou organizador
+                </ButtonLink>
+              ) : (
+                <ButtonLink to="/sparring" variant="secondary" size="lg">
+                  Buscar sparring
+                </ButtonLink>
+              )}
             </div>
           </div>
           <Card className="flex flex-col gap-4 p-6">
@@ -82,9 +102,13 @@ export default function HomePage() {
             <p.icon className="h-7 w-7 text-brand-hot" aria-hidden />
             <h3 className="font-display text-2xl uppercase">{p.title}</h3>
             <p className="flex-1 text-[15px] leading-relaxed text-ink-soft">{p.text}</p>
-            <Link to={p.to} className="font-bold text-brand-hot hover:text-brand-hover">
-              {p.cta} →
-            </Link>
+            {isOpen(p.module) ? (
+              <Link to={p.to} className="font-bold text-brand-hot hover:text-brand-hover">
+                {p.cta} →
+              </Link>
+            ) : (
+              <SoonChip />
+            )}
           </Card>
         ))}
       </Container>
@@ -114,39 +138,45 @@ export default function HomePage() {
         </Container>
       </section>
 
-      <Container className="flex flex-col gap-5 py-14">
-        <Display as="h2" className="text-4xl">
-          Monte o time do seu camp
-        </Display>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            to="/servicos"
-            className="rounded-full border border-brand-hot bg-brand-deep px-4 py-2 text-sm font-semibold text-brand-hot"
-          >
-            Todas as categorias
-          </Link>
-          {categories.map((c) => (
+      {isOpen("services") && (
+        <Container className="flex flex-col gap-5 py-14">
+          <Display as="h2" className="text-4xl">
+            Monte o time do seu camp
+          </Display>
+          <div className="flex flex-wrap gap-2">
             <Link
-              key={c.id}
-              to={`/servicos?categoria=${c.id}`}
-              className="rounded-full border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-surface-2"
+              to="/servicos"
+              className="rounded-full border border-brand-hot bg-brand-deep px-4 py-2 text-sm font-semibold text-brand-hot"
             >
-              {c.name}
+              Todas as categorias
             </Link>
-          ))}
-        </div>
-      </Container>
+            {categories.map((c) => (
+              <Link
+                key={c.id}
+                to={`/servicos?categoria=${c.id}`}
+                className="rounded-full border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-surface-2"
+              >
+                {c.name}
+              </Link>
+            ))}
+          </div>
+        </Container>
+      )}
 
-      <Container className="flex flex-col gap-5 pb-16">
+      <Container className="flex flex-col gap-5 py-14">
         <div className="flex items-end justify-between">
           <Display as="h2" className="text-4xl">
             Eventos no Rio este mês
           </Display>
-          <Link to="/eventos" className="font-bold text-brand-hot">
-            Agenda completa →
-          </Link>
+          {eventsOpen && (
+            <Link to="/eventos" className="font-bold text-brand-hot">
+              Agenda completa →
+            </Link>
+          )}
         </div>
-        {isLoading ? (
+        {!eventsOpen ? (
+          <LockedModule code="events" compact />
+        ) : isLoading ? (
           <Spinner />
         ) : (
           <div className="grid gap-3 lg:grid-cols-3">
@@ -170,9 +200,13 @@ export default function HomePage() {
               com você.
             </p>
           </div>
-          <ButtonLink to="/organizador" size="lg">
-            Conhecer o painel
-          </ButtonLink>
+          {isOpen("event_management") ? (
+            <ButtonLink to="/organizador" size="lg">
+              Conhecer o painel
+            </ButtonLink>
+          ) : (
+            <SoonChip />
+          )}
         </Container>
       </section>
     </>
