@@ -1,13 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Card, Chip, EmptyState, ErrorBox, Input, Notice, Select } from "@/components/shared/ui";
-import { keys, useEventMutation } from "@/infra/hooks/queries";
+import { keys, useCatalog, useEventMutation } from "@/infra/hooks/queries";
 import { eventsService } from "@/infra/services/events.service";
 import type { BracketMatchView, EventPanel } from "@/types/domain";
 import { cn } from "@/utils/cn";
 import { measure } from "@/utils/format";
+import { eventFlow, joinNames } from "./eventFlow";
 
 export function BracketsTab({ event: e }: { event: EventPanel }) {
+  const { data: catalog } = useCatalog();
+  const flow = eventFlow(e, catalog);
   const bracketDivisions = e.divisions.filter((d) => d.format === "bracket");
   const [divisionId, setDivisionId] = useState(bracketDivisions[0]?.id ?? "");
   const [separate, setSeparate] = useState(true);
@@ -29,8 +32,18 @@ export function BracketsTab({ event: e }: { event: EventPanel }) {
   );
   const weighIn = useEventMutation((b: Record<string, unknown>) => eventsService.weighIn(e.id, b));
 
+  if (!flow.hasBrackets)
+    return (
+      <EmptyState title="Evento sem chaves">
+        Este evento é em formato de card: monte as lutas e faça a pesagem na aba Card.
+      </EmptyState>
+    );
   if (!bracketDivisions.length)
-    return <EmptyState title="Sem categorias de chave">Crie categorias de Jiu-Jitsu na visão geral.</EmptyState>;
+    return (
+      <EmptyState title="Sem categorias de chave">
+        Crie categorias de {joinNames(flow.bracketModalities.map((m) => m.name)) || "chave"} na visão geral.
+      </EmptyState>
+    );
   const b = bracket.data;
   const isDraft = !b?.bracket || b.bracket.status === "draft";
   const limit = weigh.data?.[0]?.limit_kg;

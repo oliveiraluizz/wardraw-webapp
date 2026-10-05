@@ -314,6 +314,8 @@ export interface CardBout {
   winner_side: string | null;
   method: string | null;
   result_round: number | null;
+  /** Official weigh-ins of this bout (organizer panel only). */
+  weigh_ins?: { fighterProfileId: string; weightKg: number; status: string }[] | null;
 }
 
 export interface EventPage {

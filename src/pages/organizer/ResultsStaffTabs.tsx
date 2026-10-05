@@ -14,8 +14,8 @@ export function ResultsTab({ event: e }: { event: EventPanel }) {
   if (!ready.length)
     return (
       <EmptyState title="Nada para lançar">
-        Resultados ficam disponíveis para lutas confirmadas pelos dois lutadores. Chaves de Jiu-Jitsu: marque o vencedor
-        direto na chave.
+        Resultados ficam disponíveis para lutas do card confirmadas pelos dois lutadores.
+        {e.format !== "card" && " Nas chaves, marque o vencedor direto em Chaves e pesagem."}
       </EmptyState>
     );
   return (

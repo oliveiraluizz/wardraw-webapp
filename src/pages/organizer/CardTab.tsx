@@ -88,6 +88,9 @@ export function CardTab({ event: e }: { event: EventPanel }) {
                   .filter(Boolean)
                   .join(" · ")}
               </span>
+              {b.a_fighter_profile_id && b.b_fighter_profile_id && !["finished", "canceled"].includes(b.status) && (
+                <BoutWeighIn eventId={e.id} bout={b} />
+              )}
               {b.status === "open_slot" && (
                 <div className="flex flex-col gap-2 rounded-xl border border-brand-edge bg-brand-deep p-3">
                   <span className="text-sm">
@@ -121,6 +124,62 @@ export function CardTab({ event: e }: { event: EventPanel }) {
         )}
       </div>
       <AddBout event={e} open={adding} onClose={() => setAdding(false)} />
+    </div>
+  );
+}
+
+const WEIGH_STATUS: Record<string, { label: string; tone: "ok" | "hot" | "gold" | "muted" }> = {
+  approved: { label: "Peso batido", tone: "ok" },
+  over_weight: { label: "Acima do peso", tone: "hot" },
+  disqualified: { label: "Desclassificado", tone: "hot" },
+  moved_division: { label: "Mudou de categoria", tone: "gold" },
+};
+
+/** RF-52 for card bouts: official weight of each side; over the limit = "Acima do peso" for the organizer to decide. */
+function BoutWeighIn({ eventId, bout: b }: { eventId: string; bout: CardBout }) {
+  const save = useEventMutation((body: Record<string, unknown>) => eventsService.weighIn(eventId, body));
+  const sides = [
+    { id: b.a_fighter_profile_id!, name: b.a_name },
+    { id: b.b_fighter_profile_id!, name: b.b_name },
+  ];
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface-2 p-3">
+      <span className="text-sm font-semibold">
+        Pesagem{b.weight_limit_kg ? ` · limite ${measure(b.weight_limit_kg)} kg` : ""}
+      </span>
+      {sides.map((s) => {
+        const w = b.weigh_ins?.find((x) => x.fighterProfileId === s.id);
+        const st = w ? (WEIGH_STATUS[w.status] ?? { label: w.status, tone: "muted" as const }) : null;
+        return (
+          <form
+            key={s.id}
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(ev) => {
+              ev.preventDefault();
+              const kg = Number(new FormData(ev.currentTarget).get("kg"));
+              if (kg > 0) save.mutate({ fighterProfileId: s.id, boutId: b.id, weightKg: kg });
+            }}
+          >
+            <span className="min-w-[140px] flex-1 truncate text-sm">{s.name}</span>
+            <Input
+              name="kg"
+              type="number"
+              step="0.1"
+              min={30}
+              max={250}
+              defaultValue={w?.weightKg ?? ""}
+              placeholder="kg"
+              aria-label={`Peso de ${s.name ?? "lutador"}`}
+              className="w-24"
+            />
+            <Button type="submit" size="sm" variant="secondary" loading={save.isPending}>
+              {w ? "Atualizar" : "Registrar"}
+            </Button>
+            {st && <Chip tone={st.tone}>{st.label}</Chip>}
+          </form>
+        );
+      })}
+      {save.error && <ErrorBox error={save.error} />}
     </div>
   );
 }

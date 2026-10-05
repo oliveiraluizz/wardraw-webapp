@@ -1,11 +1,12 @@
 import { CalendarCog, ClipboardList, ExternalLink, GitBranch, Plus, Swords, Trophy, Users } from "lucide-react";
 import { NavLink, Route, Routes, useParams } from "react-router-dom";
 import { ButtonLink, Card, Display, EmptyState, ErrorBox, Eyebrow, PageLoader } from "@/components/shared/ui";
-import { useEventPanel, useMe, useMyEvents } from "@/infra/hooks/queries";
+import { useCatalog, useEventPanel, useMe, useMyEvents } from "@/infra/hooks/queries";
 import { cn } from "@/utils/cn";
 import { eventDate } from "@/utils/format";
 import { BracketsTab } from "./BracketsTab";
 import { CardTab } from "./CardTab";
+import { eventFlow } from "./eventFlow";
 import { EventForm } from "./EventForm";
 import { OverviewTab } from "./OverviewTab";
 import { RegistrationsTab } from "./RegistrationsTab";
@@ -89,19 +90,22 @@ const SECTIONS = [
   { to: "visao", label: "Visão geral", icon: CalendarCog },
   { to: "inscricoes", label: "Inscrições", icon: ClipboardList },
   { to: "chaves", label: "Chaves e pesagem", icon: GitBranch },
-  { to: "card", label: "Card", icon: Swords },
-  { to: "resultados", label: "Resultados", icon: Trophy },
+  { to: "card", label: "Card e pesagem", icon: Swords },
+  { to: "resultados", label: "Resultados do card", icon: Trophy },
   { to: "equipe", label: "Equipe de trabalho", icon: Users },
 ];
 
 function EventNav() {
   const { eventId } = useParams();
   const { data: e } = useEventPanel(eventId);
+  const { data: catalog } = useCatalog();
+  // Only the sections this event uses: an MMA card has no brackets, a Jiu-Jitsu open has no card.
+  const visible = e ? eventFlow(e, catalog).sections : SECTIONS.map((s) => s.to);
   return (
     <>
       <div className="h-px bg-line" />
       <nav aria-label="Gestão do evento" className="flex flex-col gap-1">
-        {SECTIONS.map((s) => (
+        {SECTIONS.filter((s) => visible.includes(s.to)).map((s) => (
           <NavLink
             key={s.to}
             to={`/organizador/${eventId}/${s.to}`}
@@ -146,13 +150,13 @@ function Welcome({ hasEvents }: { hasEvents: boolean }) {
   );
 }
 
-const STEPS = ["Inscrições", "Chaves", "Pesagem", "Resultados"];
-
 function EventWorkspace() {
   const { eventId = "" } = useParams();
   const { data: e, isLoading, error } = useEventPanel(eventId);
+  const { data: catalog } = useCatalog();
   if (isLoading) return <PageLoader />;
   if (error || !e) return <ErrorBox error={error} />;
+  const flow = eventFlow(e, catalog);
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
@@ -162,13 +166,14 @@ function EventWorkspace() {
         <Display className="text-3xl lg:text-[40px]">{e.name}</Display>
       </div>
       <Card className="flex flex-wrap gap-2 p-2">
-        {STEPS.map((s, i) => (
-          <span
-            key={s}
-            className="flex-1 rounded-lg bg-surface-2 px-3 py-2 text-center text-sm font-semibold text-ink-soft"
+        {flow.steps.map((s, i) => (
+          <NavLink
+            key={s.label}
+            to={`/organizador/${e.id}/${s.to}`}
+            className="flex-1 rounded-lg bg-surface-2 px-3 py-2 text-center text-sm font-semibold text-ink-soft hover:bg-surface-3 hover:text-ink"
           >
-            {i + 1}. {s}
-          </span>
+            {i + 1}. {s.label}
+          </NavLink>
         ))}
       </Card>
       <Routes>
@@ -178,7 +183,7 @@ function EventWorkspace() {
         <Route path="card" element={<CardTab event={e} />} />
         <Route path="resultados" element={<ResultsTab event={e} />} />
         <Route path="equipe" element={<StaffTab event={e} />} />
-        <Route path="*" element={<RegistrationsTab event={e} />} />
+        <Route path="*" element={<OverviewTab event={e} />} />
       </Routes>
     </div>
   );
