@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Navigate, useLocation } from "react-router-dom";
+import { ModuleGate } from "@/components/flows/LockedModule";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { PageLoader } from "@/components/shared/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,18 +43,49 @@ export const router = createBrowserRouter([
     element: <SiteLayout />,
     children: [
       { path: "/", element: page(<HomePage />) },
-      { path: "/eventos", element: page(<EventsPage />) },
-      { path: "/eventos/:slug", element: page(<EventPage />) },
+      // Locked modules show the "coming soon" card instead of the page (see the API `modules` table).
+      {
+        path: "/eventos",
+        element: page(
+          <ModuleGate code="events">
+            <EventsPage />
+          </ModuleGate>,
+        ),
+      },
+      {
+        path: "/eventos/:slug",
+        element: page(
+          <ModuleGate code="events">
+            <EventPage />
+          </ModuleGate>,
+        ),
+      },
       { path: "/planos", element: page(<PlansPage />) },
-      { path: "/sparring", element: page(<SparringPage />) },
-      { path: "/servicos", element: page(<ServicesPage />) },
+      {
+        path: "/sparring",
+        element: page(
+          <ModuleGate code="sparring">
+            <SparringPage />
+          </ModuleGate>,
+        ),
+      },
+      {
+        path: "/servicos",
+        element: page(
+          <ModuleGate code="services">
+            <ServicesPage />
+          </ModuleGate>,
+        ),
+      },
       { path: "/p/:slug", element: page(<ProfilePage />) },
       {
         path: "/comparar",
         element: page(
-          <RequireAuth>
-            <ComparePage />
-          </RequireAuth>,
+          <ModuleGate code="comparison">
+            <RequireAuth>
+              <ComparePage />
+            </RequireAuth>
+          </ModuleGate>,
         ),
       },
       { path: "/entrar", element: page(<LoginPage />) },
@@ -68,9 +100,11 @@ export const router = createBrowserRouter([
       {
         path: "/organizador/*",
         element: page(
-          <RequireAuth>
-            <OrganizerPage />
-          </RequireAuth>,
+          <ModuleGate code="event_management">
+            <RequireAuth>
+              <OrganizerPage />
+            </RequireAuth>
+          </ModuleGate>,
         ),
       },
       {

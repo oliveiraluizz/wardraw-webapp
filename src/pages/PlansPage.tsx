@@ -1,11 +1,13 @@
+import { LockKeyhole } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Container } from "@/components/layout/SiteLayout";
 import { PlanCard } from "@/components/flows/cards";
+import { LockedModule } from "@/components/flows/LockedModule";
 import { SubscribeModal } from "@/components/flows/SubscribeModal";
 import { Card, Display, ErrorBox, Eyebrow, PageLoader, ToggleChip } from "@/components/shared/ui";
 import { useAuth } from "@/contexts/AuthContext";
-import { useMe, usePlans } from "@/infra/hooks/queries";
+import { useMaxProfileTypes, useMe, usePlans, useProfileTypeModules } from "@/infra/hooks/queries";
 import type { ProfileType, PublicPlan } from "@/types/domain";
 import { money } from "@/utils/format";
 
@@ -22,13 +24,24 @@ const FAQ = [
     "Não. Serviços e inscrições são combinados direto entre vocês. A plataforma só faz a comunicação.",
   ],
   ["Tem plano gratuito?", "Não, mas todo plano começa com um período de teste."],
-  ["Posso ter mais de um perfil?", "Sim. Uma conta pode ser lutador e coach, por exemplo, cada perfil com seu plano."],
   ["O que acontece se eu parar de pagar?", "Seu perfil sai da busca, mas nada é apagado."],
 ];
 
 export default function PlansPage() {
   const [params, setParams] = useSearchParams();
-  const type = (params.get("tipo") as ProfileType) || "organizer";
+  const { isLocked, moduleOf } = useProfileTypeModules();
+  const maxTypes = useMaxProfileTypes();
+  // Open with the first profile type that is already launched (fighter, at launch).
+  const type = (params.get("tipo") as ProfileType) || TYPES.find((t) => !isLocked(t.code))?.code || "fighter";
+  const faq = [
+    ...FAQ,
+    [
+      "Posso ter mais de um perfil?",
+      maxTypes > 1
+        ? "Sim. Uma conta pode ter mais de um tipo de perfil, cada um com seu plano."
+        : "Por enquanto, cada conta tem um tipo de perfil. Em breve será possível combinar, por exemplo, lutador e coach.",
+    ],
+  ];
   const [interval, setInterval] = useState<"month" | "year">("month");
   const { data: plans, isLoading, error } = usePlans();
   const { session } = useAuth();
@@ -58,7 +71,10 @@ export default function PlansPage() {
       <div className="flex flex-wrap justify-center gap-2" role="tablist">
         {TYPES.map((t) => (
           <ToggleChip key={t.code} role="tab" selected={type === t.code} onClick={() => setParams({ tipo: t.code })}>
-            {t.label}
+            <span className="flex items-center gap-1.5">
+              {t.label}
+              {isLocked(t.code) && <LockKeyhole className="h-3.5 w-3.5 text-gold" aria-label="em breve" />}
+            </span>
           </ToggleChip>
         ))}
       </div>
@@ -72,17 +88,21 @@ export default function PlansPage() {
       </div>
       {isLoading && <PageLoader />}
       {error && <ErrorBox error={error} />}
-      <div className="grid gap-4 md:grid-cols-3">
-        {byType.map((p) => (
-          <PlanCard
-            key={p.id}
-            plan={p}
-            interval={interval}
-            onPick={(priceId) => pick(p, priceId)}
-            current={profile?.plan?.id === p.id}
-          />
-        ))}
-      </div>
+      {isLocked(type) ? (
+        <LockedModule code={moduleOf(type) ?? ""} />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-3">
+          {byType.map((p) => (
+            <PlanCard
+              key={p.id}
+              plan={p}
+              interval={interval}
+              onPick={(priceId) => pick(p, priceId)}
+              current={profile?.plan?.id === p.id}
+            />
+          ))}
+        </div>
+      )}
 
       <section className="flex flex-col gap-4">
         <Display as="h2" className="text-3xl">
@@ -97,15 +117,20 @@ export default function PlansPage() {
                 className="flex cursor-pointer flex-col gap-2 hover:bg-surface-2"
                 onClick={() => setParams({ tipo: t.code })}
               >
-                <span className="text-lg font-bold">{t.label}</span>
-                {list.map((p) => (
-                  <div key={p.id} className="flex justify-between text-sm">
-                    <span className="text-ink-soft">{p.name}</span>
-                    <span className="font-cond font-bold">
-                      {money(p.prices.find((x) => x.billingInterval === "month")?.amountCents)}
-                    </span>
-                  </div>
-                ))}
+                <span className="flex items-center gap-2 text-lg font-bold">
+                  {t.label}
+                  {isLocked(t.code) && <LockKeyhole className="h-4 w-4 text-gold" aria-label="em breve" />}
+                </span>
+                {isLocked(t.code) && <span className="text-sm text-gold">Em breve</span>}
+                {!isLocked(t.code) &&
+                  list.map((p) => (
+                    <div key={p.id} className="flex justify-between text-sm">
+                      <span className="text-ink-soft">{p.name}</span>
+                      <span className="font-cond font-bold">
+                        {money(p.prices.find((x) => x.billingInterval === "month")?.amountCents)}
+                      </span>
+                    </div>
+                  ))}
               </Card>
             );
           })}
@@ -116,7 +141,7 @@ export default function PlansPage() {
         <Display as="h2" className="text-3xl">
           Perguntas frequentes
         </Display>
-        {FAQ.map(([q, a]) => (
+        {faq.map(([q, a]) => (
           <details key={q} className="rounded-xl border border-line bg-surface px-4 py-3">
             <summary className="cursor-pointer font-bold">{q}</summary>
             <p className="mt-2 text-ink-soft">{a}</p>

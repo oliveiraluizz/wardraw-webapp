@@ -2,18 +2,8 @@ import { CheckCircle2 } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Container } from "@/components/layout/SiteLayout";
 import { ContactActions } from "@/components/flows/ContactActions";
-import {
-  Avatar,
-  ButtonLink,
-  Card,
-  Chip,
-  Display,
-  ErrorBox,
-  Notice,
-  PageLoader,
-  PhotoFrame,
-  Stat,
-} from "@/components/shared/ui";
+import { LockedFromError } from "@/components/flows/LockedModule";
+import { Avatar, ButtonLink, Card, Chip, Display, Notice, PageLoader, PhotoFrame, Stat } from "@/components/shared/ui";
 import { usePublicProfile } from "@/infra/hooks/queries";
 import type { PublicProfile, SimilarityInfo } from "@/types/domain";
 import {
@@ -40,7 +30,7 @@ export default function ProfilePage() {
   if (error || !p)
     return (
       <Container className="py-12">
-        <ErrorBox error={error ?? new Error("Perfil não encontrado.")} />
+        <LockedFromError error={error ?? new Error("Perfil não encontrado.")} />
       </Container>
     );
 

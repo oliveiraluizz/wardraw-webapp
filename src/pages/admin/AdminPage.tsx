@@ -1,9 +1,10 @@
-import { BarChart3, Database, FileCog, ShieldCheck, Tags, Ticket, Users, Wallet } from "lucide-react";
+import { BarChart3, Blocks, Database, FileCog, ShieldCheck, Tags, Ticket, Users, Wallet } from "lucide-react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { cn } from "@/utils/cn";
 import { CouponsView } from "./CouponsView";
 import { MetricsView } from "./MetricsView";
 import { ModerationView } from "./ModerationView";
+import { ModulesView } from "./ModulesView";
 import { PlansMatrixView } from "./PlansMatrixView";
 import { ResourcesView } from "./ResourcesView";
 import { SettingsView } from "./SettingsView";
@@ -13,6 +14,7 @@ import { UsersView } from "./UsersView";
 const NAV = [
   { to: "", label: "Números do piloto", icon: BarChart3 },
   { to: "moderacao", label: "Moderação", icon: ShieldCheck },
+  { to: "modulos", label: "Módulos", icon: Blocks },
   { to: "planos", label: "Planos e recursos", icon: Tags },
   { to: "cupons", label: "Cupons e promoções", icon: Ticket },
   { to: "assinaturas", label: "Assinaturas", icon: Wallet },
@@ -48,6 +50,7 @@ export default function AdminPage() {
         <Routes>
           <Route index element={<MetricsView />} />
           <Route path="moderacao" element={<ModerationView />} />
+          <Route path="modulos" element={<ModulesView />} />
           <Route path="planos" element={<PlansMatrixView />} />
           <Route path="cupons" element={<CouponsView />} />
           <Route path="assinaturas" element={<SubscriptionsView />} />

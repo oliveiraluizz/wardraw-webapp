@@ -22,6 +22,11 @@ export class ApiError extends Error {
   get needsUpgrade(): boolean {
     return this.code === "plan_upgrade_required";
   }
+
+  /** The whole area is locked ("coming soon") for this user (HTTP 403 `module_locked`). */
+  get moduleLocked(): boolean {
+    return this.code === "module_locked";
+  }
 }
 
 export const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL, timeout: 20_000 });

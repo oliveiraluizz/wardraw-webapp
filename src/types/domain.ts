@@ -18,8 +18,38 @@ export interface FieldDefinition {
   helpText: string | null;
 }
 
+/** Product area that can be active, locked ("coming soon") or hidden (table `modules` in the API). */
+export interface ProductModule {
+  code: ModuleCode;
+  name: string;
+  description: string | null;
+  status: "active" | "locked" | "hidden";
+  lockedTitle: string | null;
+  lockedMessage: string | null;
+  dependsOn: string[];
+  /** Whether the current viewer can use it (testers and super admins see locked modules). */
+  available: boolean;
+}
+
+export type ModuleCode =
+  | "athlete"
+  | "sparring"
+  | "comparison"
+  | "contacts"
+  | "events"
+  | "event_management"
+  | "teams"
+  | "services"
+  | (string & {});
+
 export interface Catalog {
-  profileTypes: { code: ProfileType; name: string; description: string; onboardingSteps: string[] }[];
+  profileTypes: {
+    code: ProfileType;
+    name: string;
+    description: string;
+    onboardingSteps: string[];
+    moduleCode: ModuleCode | null;
+  }[];
   modalities: (Named & { usesBrackets: boolean; usesCard: boolean })[];
   levels: Named[];
   fightingStyles: Named[];
@@ -50,6 +80,8 @@ export interface PublicPlan {
   prices: { id: string; billingInterval: "month" | "year"; amountCents: number; currency: string }[];
   highlights: string[];
   features: Record<string, unknown>;
+  moduleCode: ModuleCode | null;
+  moduleStatus: ProductModule["status"];
 }
 
 export interface ScheduleSegment {
@@ -118,6 +150,9 @@ export interface Me {
   privacy: { profileHidden: boolean; allowComparison: boolean; showServiceRecords: boolean };
   pendingConsents: { type: string; version: string }[];
   unreadNotifications: number;
+  availableModules: ModuleCode[];
+  /** Profile types this account may still create (module open and combination allowed). */
+  creatableProfileTypes: ProfileType[];
 }
 
 export interface SimilarityInfo {

@@ -1,24 +1,43 @@
-import { Bell, Menu, Search, X } from "lucide-react";
+import { Bell, LockKeyhole, Menu, Search, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useMe } from "@/infra/hooks/queries";
+import { useMe, useModules } from "@/infra/hooks/queries";
+import type { ModuleCode } from "@/types/domain";
 import { cn } from "@/utils/cn";
 import { ButtonLink, Logo } from "../shared/ui";
 
-const NAV = [
-  { to: "/eventos", label: "Eventos" },
-  { to: "/sparring", label: "Sparring" },
-  { to: "/servicos", label: "Serviços" },
-  { to: "/organizador", label: "Organizadores" },
+const NAV: { to: string; label: string; module?: ModuleCode }[] = [
+  { to: "/eventos", label: "Eventos", module: "events" },
+  { to: "/sparring", label: "Sparring", module: "sparring" },
+  { to: "/servicos", label: "Serviços", module: "services" },
+  { to: "/organizador", label: "Organizadores", module: "event_management" },
   { to: "/planos", label: "Planos" },
 ];
+
+/** Menu items with a lock for "coming soon" modules; hidden modules disappear. */
+function useNav() {
+  const { data: modules } = useModules();
+  return NAV.flatMap((n) => {
+    const module = n.module ? modules?.find((m) => m.code === n.module) : undefined;
+    if (module && !module.available && module.status === "hidden") return [];
+    return [{ ...n, locked: !!module && !module.available }];
+  });
+}
+
+const NavLabel = ({ label, locked }: { label: string; locked: boolean }) => (
+  <span className="flex items-center gap-1.5">
+    {label}
+    {locked && <LockKeyhole className="h-3.5 w-3.5 text-gold" aria-label="em breve" />}
+  </span>
+);
 
 function Header() {
   const { session } = useAuth();
   const { data: me } = useMe();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const nav = useNav();
 
   const onSearch = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -31,7 +50,7 @@ function Header() {
       <div className="mx-auto flex h-[76px] max-w-[1440px] items-center gap-6 px-4 lg:gap-10 lg:px-[120px]">
         <Logo />
         <nav aria-label="Principal" className="hidden gap-7 lg:flex">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
@@ -42,7 +61,7 @@ function Header() {
                 )
               }
             >
-              {n.label}
+              <NavLabel label={n.label} locked={n.locked} />
             </NavLink>
           ))}
         </nav>
@@ -102,13 +121,13 @@ function Header() {
           className="flex flex-col gap-1 border-t border-line px-4 py-3 lg:hidden"
           onClick={() => setOpen(false)}
         >
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
               className="rounded-lg px-3 py-3 text-base font-semibold text-ink-soft hover:bg-surface"
             >
-              {n.label}
+              <NavLabel label={n.label} locked={n.locked} />
             </NavLink>
           ))}
           <NavLink
